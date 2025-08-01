@@ -1,45 +1,19 @@
 import streamlit as st
 import pandas as pd
 import joblib
+import numpy as np
 
-# Load model data
+# Load saved pipeline and label encoder
 model_data = joblib.load('career_recommendation_model.pkl')
-preprocessor = model_data['preprocessor']
-
+pipeline = model_data['pipeline']          # Full pipeline: preprocessing + classifier
 label_encoder = model_data['label_encoder']
 
-# List of skill columns your model expects
+# List of skill columns expected by the model (binary 0/1)
 all_skills = [
     'AWS', 'Agile', 'Azure', 'Docker', 'HTML/CSS', 'Java', 'JavaScript', 'Kubernetes',
     'Linux', 'Node.js', 'Pandas', 'Power BI', 'Python', 'React', 'SQL', 'Scrum', 'Spark',
     'Tableau', 'TensorFlow'
 ]
-
-def prepare_input(input_data):
-    # Create base dict with all expected columns
-    base = {col: 0 if col in all_skills else "None" for col in preprocessor.feature_names_in_}
-    
-    # Fill categorical fields
-    base['Qualification'] = input_data.get('Qualification', 'None')
-    base['Language Proficiency'] = input_data.get('Language Proficiency', 'None')
-    base['Previous Internships'] = input_data.get('Previous Internships', 'None')
-    base['Certifications'] = input_data.get('Certifications', 'None')
-
-    # Set skill columns to 1 if present in input
-    skills_input = input_data.get('Skills', '')
-    skills_lower = skills_input.lower()
-    for skill in all_skills:
-        if skill.lower() in skills_lower:
-            base[skill] = 1
-
-    return pd.DataFrame([base])
-
-def recommend_careers_tuned(input_data: dict):
-    input_df = prepare_input(input_data)
-    input_transformed = preprocessor.transform(input_df)
-    probs = rf_model.predict_proba(input_transformed)[0]
-    top5_idx = probs.argsort()[::-1][:5]
-    return [(label_encoder.classes_[i], probs[i]) for i in top5_idx]
 
 # Options
 qualifications = [
@@ -70,6 +44,7 @@ qualifications = [
     "Information Communication Technology - Eastern University, Sri Lanka"
 ]
 
+
 languages = ['English', 'Sinhala', 'Tamil']
 
 internships = [
@@ -85,20 +60,36 @@ skills = [
     "Linux", "Tableau", "React", "Node.js"
 ]
 
-def prepare_input(data: dict):
-    # Start with base dict for dataframe
+# Streamlit app title
+st.title("🎯 Career Recommendation System")
+
+# User inputs
+qualification = st.selectbox("Qualification", qualifications)
+language_proficiency = st.multiselect("Language Proficiency (Select one or more)", languages)
+previous_internships = st.multiselect("Previous Internships (Select one or more)", internships)
+certifications_selected = st.multiselect("Certifications (Select one or more)", certifications)
+selected_skills = st.multiselect("Select Your Skills", skills)
+
+def prepare_input(input_data: dict) -> pd.DataFrame:
+    # Create DataFrame with categorical columns
     df = pd.DataFrame([{
-        'Qualification': data['Qualification'],
-        'Language Proficiency': data['Language Proficiency'],
-        'Previous Internships': data['Previous Internships'],
-        'Certifications': data['Certifications']
+        'Qualification': input_data['Qualification'],
+        'Language Proficiency': input_data['Language Proficiency'],
+        'Previous Internships': input_data['Previous Internships'],
+        'Certifications': input_data['Certifications']
     }])
 
-    # Add skill columns (1 if skill selected, else 0)
+    # Add skill columns as binary indicators (1 if selected, else 0)
     for skill in all_skills:
-        df[skill] = 1 if skill in data['Skills'] else 0
+        df[skill] = 1 if skill in input_data['Skills'] else 0
 
     return df
+
+def recommend_careers(input_data: dict):
+    df = prepare_input(input_data)
+    probs = pipeline.predict_proba(df)[0]
+    top5_idx = np.argsort(probs)[::-1][:5]
+    return [(label_encoder.classes_[i], probs[i]) for i in top5_idx]
 
 if st.button("Recommend Careers"):
     user_input = {
@@ -109,13 +100,8 @@ if st.button("Recommend Careers"):
         'Skills': selected_skills
     }
 
-    input_df = prepare_input(user_input)
-    # Predict probabilities for all roles
-    probs = pipeline.predict_proba(input_df)[0]
-    top5_idx = np.argsort(probs)[::-1][:5]
-    
+    recommendations = recommend_careers(user_input)
+
     st.subheader("🔝 Top 5 Recommended Careers:")
-    for idx in top5_idx:
-        role = label_encoder.classes_[idx]
-        prob = probs[idx]
+    for role, prob in recommendations:
         st.write(f"**{role}** - Probability: {prob:.2f}")
