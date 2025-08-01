@@ -85,36 +85,37 @@ skills = [
     "Linux", "Tableau", "React", "Node.js"
 ]
 
-# Blue theme CSS
-st.markdown("""
-    <style>
-    .css-1d391kg.edgvbvh3 {color: #0a66c2;}
-    .stButton>button {background-color: #0a66c2; color: white; border-radius: 8px;}
-    .stSelectbox > div, .stMultiSelect > div {
-        color: #0a66c2;
-    }
-    </style>
-""", unsafe_allow_html=True)
+def prepare_input(data: dict):
+    # Start with base dict for dataframe
+    df = pd.DataFrame([{
+        'Qualification': data['Qualification'],
+        'Language Proficiency': data['Language Proficiency'],
+        'Previous Internships': data['Previous Internships'],
+        'Certifications': data['Certifications']
+    }])
 
-st.title("🎯 Career Recommendation System")
+    # Add skill columns (1 if skill selected, else 0)
+    for skill in all_skills:
+        df[skill] = 1 if skill in data['Skills'] else 0
 
-qualification = st.selectbox("Qualification", qualifications)
-language_proficiency = st.multiselect("Language Proficiency (Select one or more)", languages)
-previous_internships = st.multiselect("Previous Internships (Select one or more)", internships)
-certifications_selected = st.multiselect("Certifications (Select one or more)", certifications)
-selected_skills = st.multiselect("Select Your Skills", skills)
+    return df
 
 if st.button("Recommend Careers"):
-    input_data = {
+    user_input = {
         'Qualification': qualification,
         'Language Proficiency': ", ".join(language_proficiency) if language_proficiency else "None",
         'Previous Internships': ", ".join(previous_internships) if previous_internships else "None",
         'Certifications': ", ".join(certifications_selected) if certifications_selected else "None",
-        'Skills': ", ".join(selected_skills) if selected_skills else ""
+        'Skills': selected_skills
     }
-    
-    results = recommend_careers_tuned(input_data)
+
+    input_df = prepare_input(user_input)
+    # Predict probabilities for all roles
+    probs = pipeline.predict_proba(input_df)[0]
+    top5_idx = np.argsort(probs)[::-1][:5]
     
     st.subheader("🔝 Top 5 Recommended Careers:")
-    for role, score in results:
-        st.write(f"**{role}** - Probability: {score:.2f}")
+    for idx in top5_idx:
+        role = label_encoder.classes_[idx]
+        prob = probs[idx]
+        st.write(f"**{role}** - Probability: {prob:.2f}")
