@@ -5,7 +5,7 @@ import joblib
 # Load model data
 model_data = joblib.load('career_recommendation_model.pkl')
 preprocessor = model_data['preprocessor']
-rf_model = model_data['rf_model']       # Make sure your RF model is saved here
+
 label_encoder = model_data['label_encoder']
 
 # List of skill columns your model expects
