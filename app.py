@@ -2,29 +2,44 @@ import streamlit as st
 import pandas as pd
 import joblib
 
-# Load saved pipeline and label encoder
+# Load model data
 model_data = joblib.load('career_recommendation_model.pkl')
+preprocessor = model_data['preprocessor']
+rf_model = model_data['rf_model']       # Make sure your RF model is saved here
+label_encoder = model_data['label_encoder']
 
+# List of skill columns your model expects
+all_skills = [
+    'AWS', 'Agile', 'Azure', 'Docker', 'HTML/CSS', 'Java', 'JavaScript', 'Kubernetes',
+    'Linux', 'Node.js', 'Pandas', 'Power BI', 'Python', 'React', 'SQL', 'Scrum', 'Spark',
+    'Tableau', 'TensorFlow'
+]
 
-preprocessor = model_data['preprocessor']       # pipeline including preprocessing + model
-label_encoder = model_data['label_encoder']     # label encoder for Role
-st.write("Expected columns in preprocessor:")
-try:
-    st.write(preprocessor.feature_names_in_)
-except Exception as e:
-    st.write("Error getting feature_names_in_:", e)
+def prepare_input(input_data):
+    # Create base dict with all expected columns
+    base = {col: 0 if col in all_skills else "None" for col in preprocessor.feature_names_in_}
+    
+    # Fill categorical fields
+    base['Qualification'] = input_data.get('Qualification', 'None')
+    base['Language Proficiency'] = input_data.get('Language Proficiency', 'None')
+    base['Previous Internships'] = input_data.get('Previous Internships', 'None')
+    base['Certifications'] = input_data.get('Certifications', 'None')
+
+    # Set skill columns to 1 if present in input
+    skills_input = input_data.get('Skills', '')
+    skills_lower = skills_input.lower()
+    for skill in all_skills:
+        if skill.lower() in skills_lower:
+            base[skill] = 1
+
+    return pd.DataFrame([base])
 
 def recommend_careers_tuned(input_data: dict):
-    input_df = pd.DataFrame([input_data])
-    # Predict probabilities for all classes directly using pipeline
-    probs = preprocessor.predict_proba(input_df)[0]
-    
-    # Get indices of top 5 probabilities
+    input_df = prepare_input(input_data)
+    input_transformed = preprocessor.transform(input_df)
+    probs = rf_model.predict_proba(input_transformed)[0]
     top5_idx = probs.argsort()[::-1][:5]
-    
-    # Map indices to role names and probabilities
-    top5_roles = [(label_encoder.classes_[i], probs[i]) for i in top5_idx]
-    return top5_roles
+    return [(label_encoder.classes_[i], probs[i]) for i in top5_idx]
 
 # Options
 qualifications = [
@@ -73,26 +88,14 @@ skills = [
 # Blue theme CSS
 st.markdown("""
     <style>
-    /* Primary text and button color */
-    .css-1d391kg.edgvbvh3 {color: #0a66c2;} /* Headers */
-    .css-1d391kg.edgvbvh3 strong {color: #0a66c2;}
+    .css-1d391kg.edgvbvh3 {color: #0a66c2;}
     .stButton>button {background-color: #0a66c2; color: white; border-radius: 8px;}
-    .stSelectbox > div, .stMultiSelect > div, .stTextInput > div, .stTextArea > div {
-        color: #0a66c2;
-    }
-    .css-1r6slb0.e1tzin5v1 {
-        color: #0a66c2;
-    }
-    .st-bd {
-        color: #0a66c2;
-    }
-    .stMarkdown p, .stMarkdown span {
+    .stSelectbox > div, .stMultiSelect > div {
         color: #0a66c2;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# Streamlit UI
 st.title("🎯 Career Recommendation System")
 
 qualification = st.selectbox("Qualification", qualifications)
@@ -101,14 +104,13 @@ previous_internships = st.multiselect("Previous Internships (Select one or more)
 certifications_selected = st.multiselect("Certifications (Select one or more)", certifications)
 selected_skills = st.multiselect("Select Your Skills", skills)
 
-
 if st.button("Recommend Careers"):
     input_data = {
         'Qualification': qualification,
         'Language Proficiency': ", ".join(language_proficiency) if language_proficiency else "None",
         'Previous Internships': ", ".join(previous_internships) if previous_internships else "None",
         'Certifications': ", ".join(certifications_selected) if certifications_selected else "None",
-        'Skills': ", ".join(selected_skills) if selected_skills else "None"
+        'Skills': ", ".join(selected_skills) if selected_skills else ""
     }
     
     results = recommend_careers_tuned(input_data)
@@ -116,5 +118,3 @@ if st.button("Recommend Careers"):
     st.subheader("🔝 Top 5 Recommended Careers:")
     for role, score in results:
         st.write(f"**{role}** - Probability: {score:.2f}")
-
-
