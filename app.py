@@ -4,14 +4,15 @@ import joblib
 
 # Load saved pipeline and label encoder
 model_data = joblib.load('career_recommendation_model.pkl')
+
+
+preprocessor = model_data['preprocessor']       # pipeline including preprocessing + model
+label_encoder = model_data['label_encoder']     # label encoder for Role
 st.write("Expected columns in preprocessor:")
 try:
     st.write(preprocessor.feature_names_in_)
 except Exception as e:
     st.write("Error getting feature_names_in_:", e)
-
-preprocessor = model_data['preprocessor']       # pipeline including preprocessing + model
-label_encoder = model_data['label_encoder']     # label encoder for Role
 
 def recommend_careers_tuned(input_data: dict):
     input_df = pd.DataFrame([input_data])
