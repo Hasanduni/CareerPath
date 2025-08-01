@@ -2,30 +2,22 @@ import streamlit as st
 import pandas as pd
 import joblib
 
-import joblib
-
+# Load saved pipeline and label encoder
 model_data = joblib.load('career_recommendation_model.pkl')
-
-# Debug: check what is inside model_data
-st.write("Type of loaded object:", type(model_data))
-if isinstance(model_data, dict):
-    st.write("Keys in the loaded dict:", list(model_data.keys()))
-else:
-    st.write("Loaded object is not a dictionary. It might be a pipeline or model directly.")
-preprocessor = model_data['preprocessor']
-rf_models_tuned = model_data['models']
+preprocessor = model_data['preprocessor']       # pipeline including preprocessing + model
+label_encoder = model_data['label_encoder']     # label encoder for Role
 
 def recommend_careers_tuned(input_data: dict):
     input_df = pd.DataFrame([input_data])
-    input_processed = preprocessor.transform(input_df)
+    # Predict probabilities for all classes directly using pipeline
+    probs = preprocessor.predict_proba(input_df)[0]
     
-    recommendations = {}
-    for role, model in rf_models_tuned.items():
-        prob = model.predict_proba(input_processed)[0][1]
-        recommendations[role] = prob
+    # Get indices of top 5 probabilities
+    top5_idx = probs.argsort()[::-1][:5]
     
-    ranked_roles = sorted(recommendations.items(), key=lambda x: x[1], reverse=True)
-    return ranked_roles
+    # Map indices to role names and probabilities
+    top5_roles = [(label_encoder.classes_[i], probs[i]) for i in top5_idx]
+    return top5_roles
 
 # Options
 qualifications = [
@@ -60,7 +52,7 @@ languages = ['English', 'Sinhala', 'Tamil']
 
 internships = [
     "Software Intern", "Data Analyst Intern", "QA Intern", "Network Intern", 
-    "UI/UX Intern", "Cloud Intern", "Cybersecurity Intern", "BI Intern", "ML Intern","None"
+    "UI/UX Intern", "Cloud Intern", "Cybersecurity Intern", "BI Intern", "ML Intern", "None"
 ]
 
 certifications = ["AWS Certified", "Azure Certified", "Scrum Master", "None"]
@@ -71,7 +63,7 @@ skills = [
     "Linux", "Tableau", "React", "Node.js"
 ]
 
-# --- Blue theme CSS ---
+# Blue theme CSS
 st.markdown("""
     <style>
     /* Primary text and button color */
@@ -103,7 +95,6 @@ certifications_selected = st.multiselect("Certifications (Select one or more)", 
 selected_skills = st.multiselect("Select Your Skills", skills)
 
 if st.button("Recommend Careers"):
-    # Prepare input data
     input_data = {
         'Qualification': qualification,
         'Language Proficiency': ", ".join(language_proficiency) if language_proficiency else "None",
@@ -115,6 +106,7 @@ if st.button("Recommend Careers"):
     results = recommend_careers_tuned(input_data)
     
     st.subheader("🔝 Top 5 Recommended Careers:")
-    for role, score in results[:5]:
+    for role, score in results:
         st.write(f"**{role}** - Probability: {score:.2f}")
+
 
