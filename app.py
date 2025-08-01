@@ -2,8 +2,16 @@ import streamlit as st
 import pandas as pd
 import joblib
 
-# Load your saved model pipeline and label encoder
+import joblib
+
 model_data = joblib.load('career_recommendation_model.pkl')
+
+# Debug: check what is inside model_data
+st.write("Type of loaded object:", type(model_data))
+if isinstance(model_data, dict):
+    st.write("Keys in the loaded dict:", list(model_data.keys()))
+else:
+    st.write("Loaded object is not a dictionary. It might be a pipeline or model directly.")
 preprocessor = model_data['preprocessor']
 rf_models_tuned = model_data['models']
 
