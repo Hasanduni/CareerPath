@@ -93,6 +93,11 @@ language_proficiency = st.multiselect("Language Proficiency (Select one or more)
 previous_internships = st.multiselect("Previous Internships (Select one or more)", internships)
 certifications_selected = st.multiselect("Certifications (Select one or more)", certifications)
 selected_skills = st.multiselect("Select Your Skills", skills)
+st.write("Pipeline expected feature names:")
+try:
+    st.write(preprocessor.feature_names_in_)
+except Exception as e:
+    st.write("Cannot get feature_names_in_:", str(e))
 
 if st.button("Recommend Careers"):
     input_data = {
